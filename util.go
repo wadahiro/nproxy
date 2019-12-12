@@ -48,6 +48,10 @@ func getHTTPSProxyEnv() string {
 	return p
 }
 
+func hasProxyEnv() bool {
+	return getHTTPProxyEnv() != ""
+}
+
 func hasUserInEnvHTTP() bool {
 	p := getHTTPProxyEnv()
 	u, _ := url.Parse(p)

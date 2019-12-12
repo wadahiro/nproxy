@@ -20,7 +20,11 @@ type Proxy interface {
 // NewProxy returns new Proxy. If pacURL isn't empty, returns PACProxy.
 func NewProxy(pacURL string) Proxy {
 	if pacURL == "" {
-		log.Printf("info: No pac URL. The proxy will use standard environment variables for the upstream proxy.")
+		if hasProxyEnv() {
+			log.Printf("info: No pac URL. The proxy uses standard environment variables for upstream proxy.")
+		} else {
+			log.Printf("info: No pac URL and environment variable. The proxy doesn't use upstream proxy.")
+		}
 
 		return &EnvProxy{}
 	}
