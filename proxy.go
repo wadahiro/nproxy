@@ -112,6 +112,7 @@ func (p *PACProxy) Find(req *http.Request) (*url.URL, error) {
 
 	for _, proxy := range proxies {
 		if proxy.IsDirect() {
+			log.Printf("debug: No proxy from the pac.")
 			return nil, nil
 		}
 		if proxy.IsSOCKS() {

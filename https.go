@@ -23,7 +23,7 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Don't check the certificate if no upstream proxy
 		if err := s.VerifyCertificate(r); err != nil {
-			log.Printf("debug: Untrusted certificate. Let's hack! reason: %v", err)
+			log.Printf("info: Untrusted certificate. Let's hack! reason: %v", err)
 
 			s.mitmRequest(w, r)
 		} else {
@@ -41,6 +41,7 @@ func directTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn := hijackConnect(w)
+	conn.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
 
 	log.Printf("debug: Relaying tcp packets. method: %s, URL: %s", r.Method, r.URL.String())
 

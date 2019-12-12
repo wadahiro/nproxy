@@ -130,13 +130,19 @@ func verifyDNSNames(c *x509.Certificate, host string) error {
 }
 
 func verifyValidityPeriod(c *x509.Certificate) error {
+	start := time.Date(2019, time.December, 1, 7, 0, 0, 0, time.UTC)
+	if d := c.NotBefore.Sub(start); d < 0 {
+		log.Printf("debug: The validity period is OK since it was issued before 2019-07-01.")
+		return nil
+	}
+
 	duration := c.NotAfter.Sub(c.NotBefore)
 
 	hours := int(duration.Hours())
 	days := hours / 24
 
 	if days > 825 {
-		return fmt.Errorf("The certificate must have validity period of 825 days or fewer")
+		return fmt.Errorf("The certificate must have validity period of 825 days or fewer. NotBefore: %v, NotAfter: %v, duration: %d days", c.NotBefore, c.NotAfter, days)
 	}
 
 	return nil
