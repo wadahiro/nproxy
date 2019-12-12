@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 )
 
 type Server struct {
@@ -52,6 +53,11 @@ func (s *Server) Start() error {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("debug: ServeHTTP")
 
+	if r.URL.Path == "/pac" {
+		s.handlePAC(w, r)
+		return
+	}
+
 	if r.Method == http.MethodConnect {
 		s.handleHTTPS(w, r)
 		return
@@ -83,4 +89,23 @@ func (s *Server) dumpResponse(resp *http.Response) {
 		fmt.Println(string(dumpResp))
 		fmt.Println("---------------------------------------------------------------------")
 	}
+}
+
+func (s *Server) handlePAC(w http.ResponseWriter, r *http.Request) {
+	addr := strings.Split(s.BindAddr, ":")
+	server := addr[0]
+	port := addr[1]
+	if server == "" {
+		server = "127.0.0.1"
+	}
+
+	var scripts = fmt.Sprintf(`
+	function FindProxyForURL(url, host) {
+	  if (isPlainHostName(host)) {
+		  return DIRECT;
+	  }
+	  return "PROXY %s:%s;";
+	}
+  `, server, port)
+	fmt.Fprintf(w, scripts)
 }
