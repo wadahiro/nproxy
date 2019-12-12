@@ -25,9 +25,9 @@ var (
 	pacURL = fs.String("pac", "", "PAC URL")
 
 	loglevel = fs.String(
-		"loglevel",
+		"log-level",
 		"info",
-		"Log level, one of: debug, info, warn, error, fatal, panic",
+		"Log level, one of: debug, info, warn, error, panic",
 	)
 
 	enableDump = fs.Bool("enable-dump", false, "Enable request/response dump")
