@@ -18,17 +18,19 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 
 	u, _ := s.proxy.Find(r)
 
+	// Don't check the certificate if no upstream proxy
 	if u == nil {
 		directTransfer(w, r)
 	} else {
-		// Don't check the certificate if no upstream proxy
-		if err := s.VerifyCertificate(r); err != nil {
-			log.Printf("info: Untrusted certificate. Let's hack! reason: %v", err)
+		if s.ca != nil {
+			if err := s.VerifyCertificate(r); err != nil {
+				log.Printf("info: Untrusted certificate. Let's hack! reason: %v", err)
 
-			s.mitmRequest(w, r)
-		} else {
-			proxyTransfer(w, r, u)
+				s.mitmRequest(w, r)
+				return
+			}
 		}
+		proxyTransfer(w, r, u)
 	}
 }
 
