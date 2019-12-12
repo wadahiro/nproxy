@@ -23,11 +23,22 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 		directTransfer(w, r)
 	} else {
 		if s.ca != nil {
-			if err := s.VerifyCertificate(r); err != nil {
-				log.Printf("info: Untrusted certificate. Let's hack! reason: %v", err)
+			// TODO: Cache timeout
+			useMitm, ok := s.tlsCache.Load(r.URL.Host)
+			if !ok {
+				if err := s.VerifyCertificate(r); err != nil {
+					log.Printf("info: Untrusted certificate. Let's hack! reason: %v", err)
 
+					useMitm = true
+					s.tlsCache.Store(r.URL.Host, true)
+				} else {
+					log.Printf("debug: Trusted certificate.")
+
+					s.tlsCache.Store(r.URL.Host, false)
+				}
+			}
+			if useMitm {
 				s.mitmRequest(w, r)
-				return
 			}
 		}
 		proxyTransfer(w, r, u)

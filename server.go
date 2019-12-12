@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
+	"sync"
 )
 
 type Server struct {
@@ -14,6 +15,7 @@ type Server struct {
 	transport *http.Transport
 	ca        *CA
 	proxy     Proxy
+	tlsCache  *tlsCache
 }
 
 type ServerConfig struct {
@@ -36,8 +38,9 @@ func NewServer(config *ServerConfig) *Server {
 			},
 			Proxy: p.Find, // For HTTP
 		},
-		ca:    NewCA(config.CACertFilePath, config.CAKeyFilePath),
-		proxy: p,
+		ca:       NewCA(config.CACertFilePath, config.CAKeyFilePath),
+		proxy:    p,
+		tlsCache: NewTLSCache(),
 	}
 
 	return s
@@ -108,4 +111,24 @@ func (s *Server) handlePAC(w http.ResponseWriter, r *http.Request) {
 	}
   `, server, port)
 	fmt.Fprintf(w, scripts)
+}
+
+type tlsCache struct {
+	sm sync.Map
+}
+
+func (m *tlsCache) Load(host string) (bool, bool) {
+	val, ok := m.sm.Load(host)
+	if !ok {
+		return false, false
+	}
+	return val.(bool), true
+}
+
+func (m *tlsCache) Store(host string, useMitm bool) {
+	m.sm.Store(host, useMitm)
+}
+
+func NewTLSCache() *tlsCache {
+	return &tlsCache{}
 }
