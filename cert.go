@@ -109,12 +109,11 @@ func (c *CA) signByCA(hosts []string) (*tls.Certificate, error) {
 	x509ca := c.Certificate
 
 	template := x509.Certificate{
-		SignatureAlgorithm: x509ca.SignatureAlgorithm,
+		SignatureAlgorithm: x509.SHA256WithRSA,
 		SerialNumber:       &serial,
 		Issuer:             x509ca.Subject,
 		Subject: pkix.Name{
-			Organization: []string{"nproxy CA"},
-			CommonName:   hosts[0],
+			CommonName: hosts[0],
 		},
 		NotBefore:             start,
 		NotAfter:              end,

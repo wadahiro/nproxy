@@ -1,10 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
+	r "math/rand"
 	"os"
 	"time"
 
@@ -32,6 +38,8 @@ var (
 
 	enableDump = fs.Bool("enable-dump", false, "Enable request/response dump")
 	insecure   = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream")
+
+	genCA = fs.Bool("gen-ca", false, "Generate own CA certificate and private key")
 )
 
 func main() {
@@ -44,7 +52,7 @@ func main() {
 	fs.Parse(os.Args[1:])
 
 	// seed the global random number generator, used in secureoperator
-	rand.Seed(time.Now().UTC().UnixNano())
+	r.Seed(time.Now().UTC().UnixNano())
 
 	// setup logger
 	colog.SetDefaultLevel(colog.LDebug)
@@ -61,6 +69,11 @@ func main() {
 	colog.ParseFields(true)
 	colog.Register()
 
+	if *genCA {
+		generateCA()
+		return
+	}
+
 	f := proxy.NewServer(&proxy.ServerConfig{
 		BindAddr:       *bindAddr,
 		CACertFilePath: *caCertPEMFile,
@@ -74,5 +87,64 @@ func main() {
 
 	if err := f.Start(); err != nil {
 		log.Fatalf("alert: %s", err.Error())
+	}
+}
+
+func generateCA() {
+	k, err := rsa.GenerateKey(rand.Reader, 2024)
+	if err != nil {
+		log.Fatalf("alert: Failed to genarate private keys, err: %v", err)
+	}
+
+	keyToFile("ca.key", k)
+
+	serial, err := rand.Int(rand.Reader, (&big.Int{}).Exp(big.NewInt(2), big.NewInt(159), nil))
+	if err != nil {
+		log.Fatalf("alert: Failed to genarate serial number, err: %v", err)
+	}
+
+	now := time.Now()
+
+	rootTemplate := x509.Certificate{
+		SignatureAlgorithm: x509.SHA256WithRSA,
+		SerialNumber:       serial,
+		Subject: pkix.Name{
+			CommonName: "NPROXY Root",
+		},
+		NotBefore:             now.Add(-10 * time.Minute).UTC(),
+		NotAfter:              now.Add(365 * 24 * time.Hour).UTC(),
+		KeyUsage:              x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &rootTemplate, &rootTemplate, &k.PublicKey, k)
+	if err != nil {
+		log.Fatalf("alert: Failed to create certificate. err: %v", err)
+	}
+	certToFile("ca.crt", derBytes)
+}
+
+func keyToFile(filename string, key *rsa.PrivateKey) {
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatalf("alert: Failed to create key file. err: %v", err)
+	}
+	defer file.Close()
+
+	if err := pem.Encode(file, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}); err != nil {
+		log.Fatalf("alert: Failed to write key PEM. err: %v", err)
+	}
+}
+
+func certToFile(filename string, derBytes []byte) {
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatalf("alert: Failed to create cert file. err: %v", err)
+	}
+	defer file.Close()
+	if err := pem.Encode(file, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		log.Fatalf("alert: Failed to write cert PEM. err: %v", err)
 	}
 }
