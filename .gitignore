@@ -5,3 +5,4 @@ dist
 *.key
 *.pac
 
+.DS_Store

@@ -15,35 +15,37 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// Verify the peer certificate with Apple's requirements for trusted certificates.
+// VerifyCertificate verify the peer certificate with Apple's requirements for trusted certificates.
 // See https://support.apple.com/en-in/HT210176
 func VerifyCertificate(target *url.URL) error {
 	conn, err := connect(target)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to connect. %w", err)
 	}
 	defer conn.Close()
 
 	if err := conn.Handshake(); err != nil {
-		return err
+		// Don't use mitm proxy
+		// return fmt.Errorf("Failed to do handshake. %w", err)
+		return nil
 	}
 
 	c := conn.ConnectionState().PeerCertificates[0]
 
 	if err := verifyDNSNames(c, target.Hostname()); err != nil {
-		return err
+		return fmt.Errorf("Failed to verify DNSName. %w", err)
 	}
 
 	if err := verifyValidityPeriod(c); err != nil {
-		return err
+		return fmt.Errorf("Failed to verify validity period. %w", err)
 	}
 
 	if err := verifyAlg(c); err != nil {
-		return err
+		return fmt.Errorf("Failed to verify algorithm. %w", err)
 	}
 
 	if err := verifyRSAKeySize(c); err != nil {
-		return err
+		return fmt.Errorf("Failed to verify RSA key size. %w", err)
 	}
 
 	return nil

@@ -19,7 +19,7 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 	u, _ := url.Parse(getProxyEnv("https_proxy"))
 
 	if err := VerifyCertificate(r.URL); err != nil {
-		log.Printf("debug: Invalid certificate. err %v", err)
+		log.Printf("debug: Untrusted certificate. err %v", err)
 
 		s.mitmRequest(w, r)
 		return
