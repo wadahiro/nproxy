@@ -15,18 +15,23 @@ import (
 )
 
 var (
-	fs       = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	fs = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+
+	bindAddr = fs.String("b", ":3128", "Bind address and port")
+
+	caCertPEMFile       = fs.String("ca-cert", "", "CA cert file (PEM)")
+	caPrivateKeyPEMFile = fs.String("ca-key", "", "CA private key file (PEM)")
+
+	pacURL = fs.String("pac", "", "PAC URL")
+
 	loglevel = fs.String(
 		"loglevel",
 		"info",
 		"Log level, one of: debug, info, warn, error, fatal, panic",
 	)
 
-	bindAddr            = fs.String("b", ":3128", "Bind address and port")
-	caCertPEMFile       = fs.String("ca-cert", "", "CA cert file(PEM)")
-	caPrivateKeyPEMFile = fs.String("ca-key", "", "CA private key file(PEM)")
-	enableDump          = fs.Bool("enable-dump", false, "Enable request/response dump")
-	insecure            = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream")
+	enableDump = fs.Bool("enable-dump", false, "Enable request/response dump")
+	insecure   = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream")
 )
 
 func main() {
@@ -60,11 +65,12 @@ func main() {
 		BindAddr:       *bindAddr,
 		CACertFilePath: *caCertPEMFile,
 		CAKeyFilePath:  *caPrivateKeyPEMFile,
+		PACURL:         *pacURL,
 		EnableDump:     *enableDump,
 		Insecure:       *insecure,
 	})
 
-	log.Printf("info: Starting: %s", *bindAddr)
+	log.Printf("info: Starting NPROXY: %s", *bindAddr)
 
 	if err := f.Start(); err != nil {
 		log.Fatalf("alert: %s", err.Error())

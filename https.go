@@ -16,28 +16,49 @@ import (
 func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 	log.Printf("debug: Start handleHTTPS. method: %s, URL: %s", r.Method, r.URL.String())
 
-	u, _ := url.Parse(getProxyEnv("https_proxy"))
+	u, _ := s.proxy.Find(r)
 
-	if err := VerifyCertificate(r.URL); err != nil {
-		log.Printf("debug: Untrusted certificate. err %v", err)
+	if u == nil {
+		directTransfer(w, r)
+	} else {
+		// Don't check the certificate if no upstream proxy
+		if err := s.VerifyCertificate(r); err != nil {
+			log.Printf("debug: Untrusted certificate. Let's hack! reason: %v", err)
 
-		s.mitmRequest(w, r)
-		return
+			s.mitmRequest(w, r)
+		} else {
+			proxyTransfer(w, r, u)
+		}
 	}
+}
 
-	// TODO non-proxy mode
-	dest, err := net.DialTimeout("tcp", u.Host, 10*time.Second)
-
-	// dest, err := net.Dial("tcp", r.Host)
+func directTransfer(w http.ResponseWriter, r *http.Request) {
+	dest, err := net.Dial("tcp", r.Host)
 	if err != nil {
-		log.Printf("error: err %v", err)
+		log.Printf("error: Failed to connect. host: %s, err: %v", r.Host, err)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 
 	conn := hijackConnect(w)
 
-	proxyAuthorization := "Basic " + base64.StdEncoding.EncodeToString([]byte(u.User.String()))
+	log.Printf("debug: Relaying tcp packets. method: %s, URL: %s", r.Method, r.URL.String())
+
+	go transfer(dest, conn)
+	go transfer(conn, dest)
+}
+
+func proxyTransfer(w http.ResponseWriter, r *http.Request, proxyURL *url.URL) {
+	dest, err := net.DialTimeout("tcp", proxyURL.Host, 10*time.Second)
+	if err != nil {
+		log.Printf("error: Failed to connect proxy. proxyHost: %s, err: %v", r.Host, err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+
+	conn := hijackConnect(w)
+
+	proxyAuthorization := "Basic " + base64.StdEncoding.EncodeToString([]byte(proxyURL.User.String()))
 
 	r.Header.Set("Proxy-Authorization", proxyAuthorization)
 

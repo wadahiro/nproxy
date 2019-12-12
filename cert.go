@@ -44,7 +44,7 @@ func NewCertCache() *certCache {
 	return &certCache{}
 }
 
-func InitCA(caCertPath, caKeyPath string) *CA {
+func NewCA(caCertPath, caKeyPath string) *CA {
 	ca, err := tls.LoadX509KeyPair(caCertPath, caKeyPath)
 	if err != nil {
 		log.Fatalf("fatal: Could not load key pair of CA: %v", err)

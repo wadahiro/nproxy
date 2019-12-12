@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -32,4 +33,35 @@ func getProxyEnv(key string) string {
 		env = os.Getenv(strings.ToUpper(key))
 	}
 	return env
+}
+
+func getHTTPProxyEnv() string {
+	return getProxyEnv("http_proxy")
+}
+
+func getHTTPSProxyEnv() string {
+	p := getProxyEnv("https_proxy")
+	if p == "" {
+		// fallback
+		return getProxyEnv("http_proxy")
+	}
+	return p
+}
+
+func hasUserInEnvHTTP() bool {
+	p := getHTTPProxyEnv()
+	u, _ := url.Parse(p)
+	if u != nil {
+		return u.User != nil
+	}
+	return false
+}
+
+func hasUserInEnvHTTPS() bool {
+	p := getHTTPSProxyEnv()
+	u, _ := url.Parse(p)
+	if u != nil {
+		return u.User != nil
+	}
+	return false
 }

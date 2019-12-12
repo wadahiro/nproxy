@@ -12,26 +12,31 @@ type Server struct {
 	ServerConfig
 	transport *http.Transport
 	ca        *CA
+	proxy     Proxy
 }
 
 type ServerConfig struct {
 	BindAddr       string
 	CACertFilePath string
 	CAKeyFilePath  string
+	PACURL         string
 	EnableDump     bool
 	Insecure       bool
 }
 
 func NewServer(config *ServerConfig) *Server {
+	p := NewProxy(config.PACURL)
+
 	s := &Server{
 		ServerConfig: *config,
 		transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: config.Insecure,
 			},
-			Proxy: http.ProxyFromEnvironment,
+			Proxy: p.Find, // For HTTP
 		},
-		ca: InitCA(config.CACertFilePath, config.CAKeyFilePath),
+		ca:    NewCA(config.CACertFilePath, config.CAKeyFilePath),
+		proxy: p,
 	}
 
 	return s
@@ -41,7 +46,6 @@ func (s *Server) Start() error {
 	if s.BindAddr == "" {
 		log.Fatalf("alert: Bind address is empty.")
 	}
-	log.Printf("debug: Start with %s", s.BindAddr)
 	return http.ListenAndServe(s.BindAddr, s)
 }
 

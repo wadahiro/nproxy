@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/url"
+	"net/http"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,8 +17,8 @@ import (
 
 // VerifyCertificate verify the peer certificate with Apple's requirements for trusted certificates.
 // See https://support.apple.com/en-in/HT210176
-func VerifyCertificate(target *url.URL) error {
-	conn, err := connect(target)
+func (s *Server) VerifyCertificate(r *http.Request) error {
+	conn, err := connect(r, s.proxy)
 	if err != nil {
 		return fmt.Errorf("Failed to connect. %w", err)
 	}
@@ -30,6 +30,7 @@ func VerifyCertificate(target *url.URL) error {
 		return nil
 	}
 
+	target := r.URL
 	c := conn.ConnectionState().PeerCertificates[0]
 
 	if err := verifyDNSNames(c, target.Hostname()); err != nil {
@@ -51,16 +52,24 @@ func VerifyCertificate(target *url.URL) error {
 	return nil
 }
 
-func connect(target *url.URL) (*tls.Conn, error) {
+func connect(r *http.Request, p Proxy) (*tls.Conn, error) {
+	target := r.URL
+
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: false,
+		ServerName:         target.Hostname(),
+		// VerifyPeerCertificate: verify,
+	}
+
+	u, _ := p.Find(r)
+	if u == nil {
+		// DIRECT
+		return tls.Dial("tcp", target.Host, tlsConfig)
+	}
+
 	dialer := &net.Dialer{
 		KeepAlive: 1 * time.Minute,
 		DualStack: true,
-	}
-
-	u, err := url.Parse(getProxyEnv("https_proxy"))
-	if err != nil {
-		log.Printf("error: Failed to parse proxy URL. url: %s://%s, err: %v", u.Scheme, u.Host, err)
-		return nil, err
 	}
 
 	pdialer, err := proxy.FromURL(u, dialer)
@@ -98,11 +107,7 @@ func connect(target *url.URL) (*tls.Conn, error) {
 	// 	return nil
 	// }
 
-	tlsConn := tls.Client(dest, &tls.Config{
-		InsecureSkipVerify: false,
-		ServerName:         target.Hostname(),
-		// VerifyPeerCertificate: verify,
-	})
+	tlsConn := tls.Client(dest, tlsConfig)
 
 	return tlsConn, nil
 }
