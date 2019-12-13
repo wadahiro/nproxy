@@ -76,14 +76,12 @@ func connect(r *http.Request, p Proxy) (*tls.Conn, error) {
 
 	pdialer, err := proxy.FromURL(u, dialer)
 	if err != nil {
-		log.Printf("error: Failed to create Dialer from proxy URL. url: %s://%s, err %v", u.Scheme, u.Host, err)
-		return nil, err
+		return nil, fmt.Errorf("error: Failed to create Dialer from proxy URL. url: %s://%s, err %w", u.Scheme, u.Host, err)
 	}
 
 	dest, err := pdialer.Dial("tcp", target.Host)
 	if err != nil {
-		log.Printf("error: Failed to connect. addr: %s, err: %v", target.Host, err)
-		return nil, err
+		return nil, fmt.Errorf("error: Failed to connect. addr: %s, err: %w", target.Host, err)
 	}
 
 	// verify := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
