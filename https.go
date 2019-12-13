@@ -96,7 +96,7 @@ func (s *Server) mitmRequest(w http.ResponseWriter, r *http.Request) {
 	conn.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
 
 	// launch goroutine to transporting request with mitm sniffing
-	go s.transportHTTPSRequest(w, r, conn)
+	go s.mitmProxyTransfer(w, r, conn)
 }
 
 func hijackConnect(w http.ResponseWriter) net.Conn {
@@ -113,8 +113,8 @@ func hijackConnect(w http.ResponseWriter) net.Conn {
 	return conn
 }
 
-func (s *Server) transportHTTPSRequest(w http.ResponseWriter, r *http.Request, conn net.Conn) {
-	log.Printf("debug: transportHTTPSRequest : %s %s", r.Method, r.URL.String())
+func (s *Server) mitmProxyTransfer(w http.ResponseWriter, r *http.Request, conn net.Conn) {
+	log.Printf("debug: mitmProxyTransfer : %s %s", r.Method, r.URL.String())
 
 	host := r.Host
 	tlsConfig, err := s.generateTLSConfig(host)
@@ -132,7 +132,7 @@ func (s *Server) transportHTTPSRequest(w http.ResponseWriter, r *http.Request, c
 	}
 	defer tlsConn.Close()
 
-	log.Printf("debug: transportHTTPSRequest : established tls connection")
+	log.Printf("debug: mitmProxyTransfer : established tls connection")
 
 	tlsIn := bufio.NewReader(tlsConn)
 	for !isEOF(tlsIn) {
@@ -146,7 +146,7 @@ func (s *Server) transportHTTPSRequest(w http.ResponseWriter, r *http.Request, c
 			return
 		}
 
-		log.Printf("debug: transportHTTPSRequest : read request : %s %s", req.Method, req.URL.String())
+		log.Printf("debug: mitmProxyTransfer : read request : %s %s", req.Method, req.URL.String())
 
 		req.URL.Scheme = "https"
 		req.URL.Host = r.Host
@@ -167,7 +167,7 @@ func (s *Server) transportHTTPSRequest(w http.ResponseWriter, r *http.Request, c
 			}
 		}
 
-		log.Printf("debug: transportHTTPSRequest : transport request: %s", resp.Status)
+		log.Printf("debug: mitmProxyTransfer : transport request: %s", resp.Status)
 
 		s.dumpResponse(resp)
 
@@ -175,7 +175,7 @@ func (s *Server) transportHTTPSRequest(w http.ResponseWriter, r *http.Request, c
 		resp.Write(tlsConn)
 	}
 
-	log.Printf("debug: transportHTTPSRequest : finished ")
+	log.Printf("debug: mitmProxyTransfer : finished ")
 }
 
 func isEOF(r *bufio.Reader) bool {
@@ -191,7 +191,7 @@ func (s *Server) generateTLSConfig(host string) (*tls.Config, error) {
 
 	host, _ = splitHostPort(host)
 
-	log.Printf("warn: generate tls config for : %s", host)
+	log.Printf("debug: generate tls config for : %s", host)
 
 	cert, err := s.ca.FindOrCreateCert(host)
 	if err != nil {
