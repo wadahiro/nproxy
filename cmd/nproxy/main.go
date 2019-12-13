@@ -37,7 +37,7 @@ var (
 	)
 
 	enableDump = fs.Bool("enable-dump", false, "Enable request/response dump")
-	insecure   = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream")
+	insecure   = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream (Don't use!)")
 
 	genCA = fs.Bool("gen-ca", false, "Generate own CA certificate and private key")
 )

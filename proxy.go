@@ -19,9 +19,20 @@ type Proxy interface {
 
 // NewProxy returns new Proxy. If pacURL isn't empty, returns PACProxy.
 func NewProxy(pacURL string) Proxy {
+	notify := func() {
+		// Notify using user info for proxy authorization
+		if hasUserInEnvHTTP() {
+			log.Printf("info: Detected userInfo for HTTP proxy in environment variables. The userInfo is used as Proxy Authorization for the upstream proxy.")
+		}
+		if hasUserInEnvHTTPS() {
+			log.Printf("info: Detected userInfo for HTTPS proxy in environment variables. The userInfo is used as Proxy Authorization for the upstream proxy.")
+		}
+	}
+
 	if pacURL == "" {
 		if hasProxyEnv() {
 			log.Printf("info: No pac URL. The proxy uses standard environment variables for upstream proxy.")
+			notify()
 		} else {
 			log.Printf("info: No pac URL and environment variable. The proxy doesn't use upstream proxy.")
 		}
@@ -29,13 +40,7 @@ func NewProxy(pacURL string) Proxy {
 		return &EnvProxy{}
 	}
 
-	// Notify using user info for proxy authorization
-	if hasUserInEnvHTTP() {
-		log.Printf("info: Detected userInfo for HTTP proxy in environment variables. The userInfo is used as Proxy Authorization for the upstream proxy.")
-	}
-	if hasUserInEnvHTTPS() {
-		log.Printf("info: Detected userInfo for HTTPS proxy in environment variables. The userInfo is used as Proxy Authorization for the upstream proxy.")
-	}
+	notify()
 
 	// Replace default proxy for fetching pac file
 	defaultProxy := http.DefaultTransport.(*http.Transport).Proxy
