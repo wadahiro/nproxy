@@ -91,7 +91,7 @@ func main() {
 }
 
 func generateCA() {
-	k, err := rsa.GenerateKey(rand.Reader, 2024)
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		log.Fatalf("alert: Failed to genarate private keys, err: %v", err)
 	}

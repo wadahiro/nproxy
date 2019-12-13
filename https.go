@@ -39,6 +39,7 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 			}
 			if useMitm {
 				s.mitmRequest(w, r)
+				return
 			}
 		}
 		proxyTransfer(w, r, u)
