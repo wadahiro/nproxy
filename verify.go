@@ -20,7 +20,9 @@ import (
 func (s *Server) VerifyCertificate(r *http.Request) error {
 	conn, err := connect(r, s.proxy)
 	if err != nil {
-		return fmt.Errorf("Failed to connect. %w", err)
+		// Don't use mitm proxy
+		log.Printf("warn: Failed to connect for certificate verification. Skipped it. reason: %v", err)
+		return nil
 	}
 	defer conn.Close()
 
