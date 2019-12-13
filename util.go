@@ -13,8 +13,6 @@ func removeProxyHeaders(r *http.Request) {
 	r.RequestURI = ""
 	r.Header.Del("Accept-Encoding")
 	r.Header.Del("Proxy-Connection")
-	r.Header.Del("Proxy-Authenticate")
-	r.Header.Del("Proxy-Authorization")
 	r.Header.Del("Connection")
 }
 
@@ -46,6 +44,16 @@ func getHTTPSProxyEnv() string {
 		return getProxyEnv("http_proxy")
 	}
 	return p
+}
+
+func getNoProxyEnv() []string {
+	s := getProxyEnv("no_proxy")
+	l := strings.Split(s, ",")
+	tl := make([]string, len(l))
+	for i, v := range l {
+		tl[i] = strings.TrimSpace(v)
+	}
+	return tl
 }
 
 func hasProxyEnv() bool {
