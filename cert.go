@@ -52,12 +52,12 @@ func NewCA(caCertPath, caKeyPath string) *CA {
 
 	ca, err := tls.LoadX509KeyPair(caCertPath, caKeyPath)
 	if err != nil {
-		log.Fatalf("fatal: Could not load key pair of CA: %v", err)
+		log.Fatalf("alert: Could not load key pair of CA: %v", err)
 	}
 
 	cert, err := x509.ParseCertificate(ca.Certificate[0])
 	if err != nil {
-		log.Fatalf("fatal: Invalid certificate : %v", err)
+		log.Fatalf("alert: Invalid certificate : %v", err)
 	}
 
 	return &CA{
