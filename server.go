@@ -24,6 +24,7 @@ type ServerConfig struct {
 	CAKeyFilePath  string
 	PACURL         string
 	EnableDump     bool
+	DisableHijack  bool
 	Insecure       bool
 }
 

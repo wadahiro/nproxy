@@ -27,10 +27,16 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 			useMitm, ok := s.tlsCache.Load(r.URL.Host)
 			if !ok {
 				if err := s.VerifyCertificate(r); err != nil {
-					log.Printf("info: Untrusted certificate. Let's hack! reason: %v", err)
+					if s.DisableHijack {
+						log.Printf("debug: Disabled hijacking. Ignore untrusted certificate. reason: %v", err)
 
-					useMitm = true
-					s.tlsCache.Store(r.URL.Host, true)
+						s.tlsCache.Store(r.URL.Host, false)
+					} else {
+						log.Printf("info: Untrusted certificate. Let's hijack! reason: %v", err)
+
+						useMitm = true
+						s.tlsCache.Store(r.URL.Host, true)
+					}
 				} else {
 					log.Printf("debug: Trusted certificate.")
 

@@ -36,8 +36,9 @@ var (
 		"Log level, one of: debug, info, warn, error, panic",
 	)
 
-	enableDump = fs.Bool("enable-dump", false, "Enable request/response dump")
-	insecure   = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream (Don't use!)")
+	enableDump    = fs.Bool("enable-dump", false, "Enable request/response dump")
+	insecure      = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream (Don't use!)")
+	disableHijack = fs.Bool("disable-hijack", false, "Skip hijack when connecting to upstream")
 
 	genCA = fs.Bool("gen-ca", false, "Generate own CA certificate and private key")
 )
@@ -81,6 +82,7 @@ func main() {
 		PACURL:         *pacURL,
 		EnableDump:     *enableDump,
 		Insecure:       *insecure,
+		DisableHijack:  *disableHijack,
 	})
 
 	log.Printf("info: Starting NPROXY: %s", *bindAddr)
