@@ -19,17 +19,18 @@ type Server struct {
 }
 
 type ServerConfig struct {
-	BindAddr       string
-	CACertFilePath string
-	CAKeyFilePath  string
-	PACURL         string
-	EnableDump     bool
-	DisableHijack  bool
-	Insecure       bool
+	BindAddr         string
+	CACertFilePath   string
+	CAKeyFilePath    string
+	PACURL           string
+	OverridePACProxy string
+	EnableDump       bool
+	DisableHijack    bool
+	Insecure         bool
 }
 
 func NewServer(config *ServerConfig) *Server {
-	p := NewProxy(config.PACURL)
+	p := NewProxy(config)
 
 	s := &Server{
 		ServerConfig: *config,

@@ -28,7 +28,8 @@ var (
 	caCertPEMFile       = fs.String("ca-cert", "", "CA cert file (PEM)")
 	caPrivateKeyPEMFile = fs.String("ca-key", "", "CA private key file (PEM)")
 
-	pacURL = fs.String("pac", "", "PAC URL")
+	pacURL           = fs.String("pac", "", "PAC URL")
+	overridePacProxy = fs.String("override-pac-proxy", "", "Set upstream proxy server:port to override proxy in PAC file")
 
 	loglevel = fs.String(
 		"log-level",
@@ -76,13 +77,14 @@ func main() {
 	}
 
 	f := proxy.NewServer(&proxy.ServerConfig{
-		BindAddr:       *bindAddr,
-		CACertFilePath: *caCertPEMFile,
-		CAKeyFilePath:  *caPrivateKeyPEMFile,
-		PACURL:         *pacURL,
-		EnableDump:     *enableDump,
-		Insecure:       *insecure,
-		DisableHijack:  *disableHijack,
+		BindAddr:         *bindAddr,
+		CACertFilePath:   *caCertPEMFile,
+		CAKeyFilePath:    *caPrivateKeyPEMFile,
+		PACURL:           *pacURL,
+		OverridePACProxy: *overridePacProxy,
+		EnableDump:       *enableDump,
+		Insecure:         *insecure,
+		DisableHijack:    *disableHijack,
 	})
 
 	log.Printf("info: Starting NPROXY: %s", *bindAddr)

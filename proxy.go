@@ -18,7 +18,9 @@ type Proxy interface {
 }
 
 // NewProxy returns new Proxy. If pacURL isn't empty, returns PACProxy.
-func NewProxy(pacURL string) Proxy {
+func NewProxy(config *ServerConfig) Proxy {
+	pacURL := config.PACURL
+
 	notify := func() {
 		// Notify using user info for proxy authorization
 		if hasUserInEnvHTTP() {
@@ -54,11 +56,16 @@ func NewProxy(pacURL string) Proxy {
 		log.Printf("warn: Failed to load pac file. Try to reload on the fly... pac URL: %s, err: %v", pacURL, err)
 	}
 
-	log.Printf("info: Got pac file from %s", pacURL)
+	if config.OverridePACProxy == "" {
+		log.Printf("info: Got pac file from %s", pacURL)
+	} else {
+		log.Printf("info: Got pac file from %s but override the proxy with specified proxy server", pacURL)
+	}
 
 	return &PACProxy{
-		URL: pacURL,
-		pac: pac,
+		URL:              pacURL,
+		OverridePACProxy: config.OverridePACProxy,
+		pac:              pac,
 	}
 }
 
@@ -73,8 +80,9 @@ func (p *EnvProxy) Find(req *http.Request) (*url.URL, error) {
 
 // PACProxy is a Proxy implementation using pac file.
 type PACProxy struct {
-	URL string
-	pac *gpac.Parser
+	URL              string
+	OverridePACProxy string
+	pac              *gpac.Parser
 }
 
 // Find proxy URL from request using pac file.
@@ -124,11 +132,18 @@ func (p *PACProxy) Find(req *http.Request) (*url.URL, error) {
 			log.Printf("debug: No proxy from the pac.")
 			return nil, nil
 		}
+		var proxyAddr string
+		if p.OverridePACProxy != "" {
+			log.Printf("debug: Override pac proxy.")
+			proxyAddr = p.OverridePACProxy
+		} else {
+			proxyAddr = proxy.Address
+		}
 		if proxy.IsSOCKS() {
-			u, err = url.Parse(fmt.Sprintf("sock5://%s", proxy.Address))
+			u, err = url.Parse(fmt.Sprintf("sock5://%s", proxyAddr))
 			break
 		} else {
-			u, err = url.Parse(fmt.Sprintf("http://%s", proxy.Address))
+			u, err = url.Parse(fmt.Sprintf("http://%s", proxyAddr))
 			break
 		}
 	}
