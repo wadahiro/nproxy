@@ -3,6 +3,7 @@ package nproxy
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -12,10 +13,11 @@ import (
 
 type Server struct {
 	ServerConfig
-	transport *http.Transport
-	ca        *CA
-	proxy     Proxy
-	tlsCache  *tlsCache
+	transport   *http.Transport
+	ca          *CA
+	proxy       Proxy
+	tlsCache    *tlsCache
+	caCertCache []byte
 }
 
 type ServerConfig struct {
@@ -32,6 +34,16 @@ type ServerConfig struct {
 func NewServer(config *ServerConfig) *Server {
 	p := NewProxy(config)
 
+	var caCertCache []byte
+	if config.CACertFilePath != "" {
+		b, err := ioutil.ReadFile(config.CACertFilePath)
+		if err != nil {
+			log.Fatalf("alert: Failed to load ca-cert file. err: %v", err)
+			return nil
+		}
+		caCertCache = b
+	}
+
 	s := &Server{
 		ServerConfig: *config,
 		transport: &http.Transport{
@@ -40,9 +52,10 @@ func NewServer(config *ServerConfig) *Server {
 			},
 			Proxy: p.Find, // For HTTP
 		},
-		ca:       NewCA(config.CACertFilePath, config.CAKeyFilePath),
-		proxy:    p,
-		tlsCache: NewTLSCache(),
+		ca:          NewCA(config.CACertFilePath, config.CAKeyFilePath),
+		proxy:       p,
+		tlsCache:    NewTLSCache(),
+		caCertCache: caCertCache,
 	}
 
 	return s
@@ -60,6 +73,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/pac" {
 		s.handlePAC(w, r)
+		return
+	}
+
+	if r.URL.Path == "/cert" {
+		s.handleCert(w, r)
 		return
 	}
 
@@ -113,6 +131,15 @@ func (s *Server) handlePAC(w http.ResponseWriter, r *http.Request) {
 	}
   `, server, port)
 	fmt.Fprintf(w, scripts)
+}
+
+func (s *Server) handleCert(w http.ResponseWriter, r *http.Request) {
+	if len(s.caCertCache) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Write(s.caCertCache)
 }
 
 type tlsCache struct {
