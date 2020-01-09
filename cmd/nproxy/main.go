@@ -37,9 +37,10 @@ var (
 		"Log level, one of: debug, info, warn, error, panic",
 	)
 
-	enableDump    = fs.Bool("enable-dump", false, "Enable request/response dump")
-	insecure      = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream (Don't use!)")
-	disableHijack = fs.Bool("disable-hijack", false, "Skip hijack when connecting to upstream")
+	enableDump                = fs.Bool("enable-dump", false, "Enable request/response dump")
+	insecure                  = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream (Don't use!)")
+	disableHijack             = fs.Bool("disable-hijack-invalid-cert", false, "Skip hijack https when detecting invalid cert through upstream proxy")
+	alwaysHijackUpstreamProxy = fs.Bool("always-hijack-upstream-proxy", false, "Always hijack https when using upstream proxy")
 
 	genCA = fs.Bool("gen-ca", false, "Generate own CA certificate and private key")
 )
@@ -77,14 +78,15 @@ func main() {
 	}
 
 	f := proxy.NewServer(&proxy.ServerConfig{
-		BindAddr:         *bindAddr,
-		CACertFilePath:   *caCertPEMFile,
-		CAKeyFilePath:    *caPrivateKeyPEMFile,
-		PACURL:           *pacURL,
-		OverridePACProxy: *overridePacProxy,
-		EnableDump:       *enableDump,
-		Insecure:         *insecure,
-		DisableHijack:    *disableHijack,
+		BindAddr:                  *bindAddr,
+		CACertFilePath:            *caCertPEMFile,
+		CAKeyFilePath:             *caPrivateKeyPEMFile,
+		PACURL:                    *pacURL,
+		OverridePACProxy:          *overridePacProxy,
+		EnableDump:                *enableDump,
+		Insecure:                  *insecure,
+		DisableHijack:             *disableHijack,
+		AlwaysHijackUpstreamProxy: *alwaysHijackUpstreamProxy,
 	})
 
 	log.Printf("info: Starting NPROXY: %s", *bindAddr)

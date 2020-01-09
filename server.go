@@ -21,14 +21,15 @@ type Server struct {
 }
 
 type ServerConfig struct {
-	BindAddr         string
-	CACertFilePath   string
-	CAKeyFilePath    string
-	PACURL           string
-	OverridePACProxy string
-	EnableDump       bool
-	DisableHijack    bool
-	Insecure         bool
+	BindAddr                  string
+	CACertFilePath            string
+	CAKeyFilePath             string
+	PACURL                    string
+	OverridePACProxy          string
+	EnableDump                bool
+	DisableHijack             bool
+	AlwaysHijackUpstreamProxy bool
+	Insecure                  bool
 }
 
 func NewServer(config *ServerConfig) *Server {
@@ -50,7 +51,7 @@ func NewServer(config *ServerConfig) *Server {
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: config.Insecure,
 			},
-			Proxy: p.Find, // For HTTP
+			Proxy: p.Find, // For HTTP and HTTPS with mitm
 		},
 		ca:          NewCA(config.CACertFilePath, config.CAKeyFilePath),
 		proxy:       p,

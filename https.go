@@ -23,33 +23,43 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 		directTransfer(w, r)
 	} else {
 		if s.ca != nil {
-			// TODO: Cache timeout
-			useMitm, ok := s.tlsCache.Load(r.URL.Host)
-			if !ok {
-				if err := s.VerifyCertificate(r); err != nil {
-					if s.DisableHijack {
-						log.Printf("debug: Disabled hijacking. Ignore untrusted certificate. reason: %v", err)
-
-						s.tlsCache.Store(r.URL.Host, false)
-					} else {
-						log.Printf("info: Untrusted certificate. Let's hijack! reason: %v", err)
-
-						useMitm = true
-						s.tlsCache.Store(r.URL.Host, true)
-					}
-				} else {
-					log.Printf("debug: Trusted certificate.")
-
-					s.tlsCache.Store(r.URL.Host, false)
-				}
-			}
-			if useMitm {
+			if s.checkUseMitm(r) {
 				s.mitmRequest(w, r)
 				return
 			}
 		}
 		proxyTransfer(w, r, u)
 	}
+}
+
+func (s *Server) checkUseMitm(r *http.Request) bool {
+	// TODO: Cache timeout
+	useMitm, ok := s.tlsCache.Load(r.URL.Host)
+	if !ok {
+		if s.AlwaysHijackUpstreamProxy {
+			log.Printf("debug: Always hijacking.")
+			useMitm = true
+			s.tlsCache.Store(r.URL.Host, useMitm)
+
+		} else if err := s.VerifyCertificate(r); err != nil {
+			if s.DisableHijack {
+				log.Printf("debug: Disabled hijacking. Ignore untrusted certificate. reason: %v", err)
+				useMitm = false
+				s.tlsCache.Store(r.URL.Host, useMitm)
+
+			} else {
+				log.Printf("info: Untrusted certificate. Let's hijack! reason: %v", err)
+				useMitm = true
+				s.tlsCache.Store(r.URL.Host, useMitm)
+			}
+
+		} else {
+			log.Printf("debug: Trusted certificate.")
+			useMitm = false
+			s.tlsCache.Store(r.URL.Host, useMitm)
+		}
+	}
+	return useMitm
 }
 
 func directTransfer(w http.ResponseWriter, r *http.Request) {
