@@ -66,6 +66,7 @@ func NewProxy(config *ServerConfig) Proxy {
 		URL:              pacURL,
 		OverridePACProxy: config.OverridePACProxy,
 		pac:              pac,
+		noProxyChecker:   &EnvProxy{},
 	}
 }
 
@@ -83,6 +84,7 @@ type PACProxy struct {
 	URL              string
 	OverridePACProxy string
 	pac              *gpac.Parser
+	noProxyChecker   Proxy
 }
 
 // Find proxy URL from request using pac file.
@@ -118,7 +120,19 @@ func (p *PACProxy) Find(req *http.Request) (*url.URL, error) {
 		}
 	}
 
-	var err error
+	// First, check no_proxy from environment variable
+	urls, err := p.noProxyChecker.Find(req)
+	if err != nil {
+		log.Printf("error: Failed to check no_proxy. %v", err)
+		return nil, err
+	}
+	if urls == nil {
+		// no_proxy
+		log.Printf("debug: Don't use upstream proxy because it's detected by no_proxy")
+		return nil, nil
+	}
+
+	// Find by PAC
 	proxies, err := p.pac.FindProxy(absURL)
 	if err != nil {
 		log.Printf("error: Failed to find proxy from the pac. %v", err)
