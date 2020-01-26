@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"crypto/tls"
@@ -18,8 +20,20 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 
 	u, _ := s.proxy.Find(r)
 
-	// Don't check the certificate if no upstream proxy
+	if s.ca != nil && s.AlwaysMITMHTTPS {
+		log.Printf("debug: Always mitm https.")
+		s.mitmRequest(w, r)
+		return
+	}
+
 	if u == nil {
+		if s.ca != nil {
+			if s.checkUseMitm(r) {
+				s.mitmRequest(w, r)
+				return
+			}
+		}
+		// Don't check the certificate if no upstream proxy
 		directTransfer(w, r)
 	} else {
 		if s.ca != nil {
@@ -33,16 +47,16 @@ func (s *Server) handleHTTPS(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) checkUseMitm(r *http.Request) bool {
+	if s.ca != nil && s.AlwaysMITMHTTPS {
+		log.Printf("debug: Always mitm https.")
+		return true
+	}
+
 	// TODO: Cache timeout
 	useMitm, ok := s.tlsCache.Load(r.URL.Host)
 	if !ok {
-		if s.AlwaysHijackUpstreamProxy {
-			log.Printf("debug: Always hijacking.")
-			useMitm = true
-			s.tlsCache.Store(r.URL.Host, useMitm)
-
-		} else if err := s.VerifyCertificate(r); err != nil {
-			if s.DisableHijack {
+		if err := s.VerifyCertificate(r); err != nil {
+			if s.DisableReplaceInvalidCert {
 				log.Printf("debug: Disabled hijacking. Ignore untrusted certificate. reason: %v", err)
 				useMitm = false
 				s.tlsCache.Store(r.URL.Host, useMitm)
@@ -153,12 +167,11 @@ func (s *Server) mitmProxyTransfer(w http.ResponseWriter, r *http.Request, conn 
 	tlsIn := bufio.NewReader(tlsConn)
 	for !isEOF(tlsIn) {
 		req, err := http.ReadRequest(tlsIn)
+		if err != nil && err != io.EOF {
+			return
+		}
 		if err != nil {
-			if err == io.EOF {
-				log.Printf("error: EOF detected when read request from client: %v %v", r.Host, err)
-			} else {
-				log.Printf("error: Cannot read request from client: %v %v", r.Host, err)
-			}
+			log.Printf("error: Cannot read TLS request from client %v %v", r.Host, err)
 			return
 		}
 
@@ -171,6 +184,12 @@ func (s *Server) mitmProxyTransfer(w http.ResponseWriter, r *http.Request, conn 
 
 		s.dumpRequest(req)
 
+		if isWebSocketRequest(req) {
+			log.Printf("info: Request looks like websocket upgrade.")
+			serveWebsocketTLS(w, req, tlsConfig, tlsConn)
+			return
+		}
+
 		removeProxyHeaders(req)
 
 		// transport request to target host
@@ -182,10 +201,50 @@ func (s *Server) mitmProxyTransfer(w http.ResponseWriter, r *http.Request, conn 
 				return
 			}
 		}
+		defer resp.Body.Close()
 
 		log.Printf("debug: mitmProxyTransfer : transport request: %s", resp.Status)
 
 		s.dumpResponse(resp)
+
+		text := resp.Status
+		statusCode := strconv.Itoa(resp.StatusCode) + " "
+		if strings.HasPrefix(text, statusCode) {
+			text = text[len(statusCode):]
+		}
+		// always use 1.1 to support chunked encoding
+		if _, err := io.WriteString(tlsConn, "HTTP/1.1"+" "+statusCode+text+"\r\n"); err != nil {
+			log.Printf("error: Cannot write TLS response HTTP status from mitm'd client: %v", err)
+			return
+		}
+		// Since we don't know the length of resp, return chunked encoded response
+		// TODO: use a more reasonable scheme
+		resp.Header.Del("Content-Length")
+		resp.Header.Set("Transfer-Encoding", "chunked")
+		// Force connection close otherwise chrome will keep CONNECT tunnel open forever
+		resp.Header.Set("Connection", "close")
+
+		if err := resp.Header.Write(tlsConn); err != nil {
+			log.Printf("error: Cannot write TLS response header from mitm'd client: %v", err)
+			return
+		}
+		if _, err = io.WriteString(tlsConn, "\r\n"); err != nil {
+			log.Printf("error: Cannot write TLS response header end from mitm'd client: %v", err)
+			return
+		}
+		chunked := NewChunkedWriter(tlsConn)
+		if _, err := io.Copy(chunked, resp.Body); err != nil {
+			log.Printf("error: Cannot write TLS response body from mitm'd client: %v", err)
+			return
+		}
+		if err := chunked.Close(); err != nil {
+			log.Printf("error: Cannot write TLS chunked EOF from mitm'd client: %v", err)
+			return
+		}
+		if _, err = io.WriteString(tlsConn, "\r\n"); err != nil {
+			log.Printf("error: Cannot write TLS response chunked trailer from mitm'd client: %v", err)
+			return
+		}
 
 		// copy response to client
 		resp.Write(tlsConn)

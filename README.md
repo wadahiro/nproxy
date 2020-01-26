@@ -25,12 +25,16 @@ Usage:
 
 Options:
 
+  -always-mitm-https
+        Always mitm when using https
   -b string
         Bind address and port (default ":3128")
   -ca-cert string
         CA cert file (PEM)
   -ca-key string
         CA private key file (PEM)
+  -disable-replace-invalid-cert
+        Skip replacing invalid server certificate when detecting invalid
   -enable-dump
         Enable request/response dump
   -gen-ca
@@ -39,15 +43,16 @@ Options:
         Skip certificate verification when connecting to upstream (Don't use!)
   -log-level string
         Log level, one of: debug, info, warn, error, panic (default "info")
+  -override-pac-proxy string
+        Set upstream proxy server:port to override proxy in PAC file
   -pac string
         PAC URL
-exit status 2
 ```
 
 ## Basic
 
 Set the upstream proxy as environment variables `http_proxy` and `https_proxy`.
-Then run `ngproxy`. It starts a proxy server on `:3128`.
+Then run `nproxy`. It starts a proxy server on `:3128`.
 
 ```
 export http_proxy=http://upstream-proxy.example.org:4000

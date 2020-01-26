@@ -39,8 +39,8 @@ var (
 
 	enableDump                = fs.Bool("enable-dump", false, "Enable request/response dump")
 	insecure                  = fs.Bool("insecure", false, "Skip certificate verification when connecting to upstream (Don't use!)")
-	disableHijack             = fs.Bool("disable-hijack-invalid-cert", false, "Skip hijack https when detecting invalid cert through upstream proxy")
-	alwaysHijackUpstreamProxy = fs.Bool("always-hijack-upstream-proxy", false, "Always hijack https when using upstream proxy")
+	disableReplaceInvalidCert = fs.Bool("disable-replace-invalid-cert", false, "Skip replacing invalid server certificate when detecting invalid")
+	alwaysMITMHTTPS           = fs.Bool("always-mitm-https", false, "Always mitm when using https")
 
 	genCA = fs.Bool("gen-ca", false, "Generate own CA certificate and private key")
 )
@@ -85,8 +85,8 @@ func main() {
 		OverridePACProxy:          *overridePacProxy,
 		EnableDump:                *enableDump,
 		Insecure:                  *insecure,
-		DisableHijack:             *disableHijack,
-		AlwaysHijackUpstreamProxy: *alwaysHijackUpstreamProxy,
+		DisableReplaceInvalidCert: *disableReplaceInvalidCert,
+		AlwaysMITMHTTPS:           *alwaysMITMHTTPS,
 	})
 
 	log.Printf("info: Starting NPROXY: %s", *bindAddr)

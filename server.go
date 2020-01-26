@@ -27,8 +27,8 @@ type ServerConfig struct {
 	PACURL                    string
 	OverridePACProxy          string
 	EnableDump                bool
-	DisableHijack             bool
-	AlwaysHijackUpstreamProxy bool
+	DisableReplaceInvalidCert bool
+	AlwaysMITMHTTPS           bool
 	Insecure                  bool
 }
 
