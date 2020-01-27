@@ -184,9 +184,9 @@ func (s *Server) mitmProxyTransfer(w http.ResponseWriter, r *http.Request, conn 
 
 		s.dumpRequest(req)
 
-		if isWebSocketRequest(req) {
+		if s.isWebSocketRequest(req) {
 			log.Printf("info: Request looks like websocket upgrade.")
-			serveWebsocketTLS(w, req, tlsConfig, tlsConn)
+			s.serveWebsocketTLS(w, req, tlsConfig, tlsConn)
 			return
 		}
 

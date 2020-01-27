@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -40,7 +39,7 @@ import (
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-func isWebSocketRequest(r *http.Request) bool {
+func (s *Server) isWebSocketRequest(r *http.Request) bool {
 	if strings.EqualFold(r.Header.Get("Connection"), "upgrade") &&
 		strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
 		return true
@@ -48,11 +47,12 @@ func isWebSocketRequest(r *http.Request) bool {
 	return false
 }
 
-func serveWebsocketTLS(w http.ResponseWriter, req *http.Request, tlsConfig *tls.Config, clientConn *tls.Conn) {
-	targetURL := url.URL{Scheme: "wss", Host: req.URL.Host, Path: req.URL.Path}
+func (s *Server) serveWebsocketTLS(w http.ResponseWriter, req *http.Request, tlsConfig *tls.Config, clientConn *tls.Conn) {
+	// targetURL := url.URL{Scheme: "wss", Host: req.URL.Host, Path: req.URL.Path}
 
 	// Connect to upstream
-	targetConn, err := tls.Dial("tcp", targetURL.Host, tlsConfig)
+	targetConn, err := connect(req, s.proxy)
+	// targetConn, err := tls.Dial("tcp", targetURL.Host, tlsConfig)
 	if err != nil {
 		log.Printf("error: Error dialing target site: %v", err)
 		return
@@ -60,16 +60,16 @@ func serveWebsocketTLS(w http.ResponseWriter, req *http.Request, tlsConfig *tls.
 	defer targetConn.Close()
 
 	// Perform handshake
-	if err := websocketHandshake(req, targetConn, clientConn); err != nil {
+	if err := s.websocketHandshake(req, targetConn, clientConn); err != nil {
 		log.Printf("error: Websocket handshake error: %v", err)
 		return
 	}
 
 	// Proxy wss connection
-	proxyWebsocket(targetConn, clientConn)
+	s.proxyWebsocket(targetConn, clientConn)
 }
 
-func websocketHandshake(req *http.Request, targetSiteConn io.ReadWriter, clientConn io.ReadWriter) error {
+func (s *Server) websocketHandshake(req *http.Request, targetSiteConn io.ReadWriter, clientConn io.ReadWriter) error {
 	// write handshake request to target
 	err := req.Write(targetSiteConn)
 	if err != nil {
@@ -82,8 +82,12 @@ func websocketHandshake(req *http.Request, targetSiteConn io.ReadWriter, clientC
 	// Read handshake response from target
 	resp, err := http.ReadResponse(targetTLSReader, req)
 	if err != nil {
-		log.Printf("error: Error reading handhsake response  %v", err)
+		log.Printf("error: Error reading handhsake response: %v", err)
 		return err
+	}
+
+	if !strings.EqualFold(resp.Header.Get("Connection"), "upgrade") {
+		resp.Header.Add("Connection", "upgrade")
 	}
 
 	// Proxy handshake back to client
@@ -95,11 +99,13 @@ func websocketHandshake(req *http.Request, targetSiteConn io.ReadWriter, clientC
 	return nil
 }
 
-func proxyWebsocket(dest io.ReadWriter, source io.ReadWriter) {
+func (s *Server) proxyWebsocket(dest io.ReadWriter, source io.ReadWriter) {
 	errChan := make(chan error, 2)
 	cp := func(dst io.Writer, src io.Reader) {
 		_, err := io.Copy(dst, src)
-		log.Printf("error: Websocket error: %v", err)
+		if err != nil {
+			log.Printf("error: Websocket error: %v", err)
+		}
 		errChan <- err
 	}
 
