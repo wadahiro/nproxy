@@ -1,57 +1,68 @@
 NAME := nproxy
-VERSION := v0.8.0
+VERSION := $(shell git describe --tags --abbrev=0)
 REVISION := $(shell git rev-parse --short HEAD)
 
 SRCS    := $(shell find . -type f -name '*.go')
-#LDFLAGS := -ldflags="-s -w -extldflags -static"
+
+VERSION_OPTS := -X 'main.version=$(VERSION)' -X 'main.revision=$(REVISION)'
+WINDOWS_OPTS := -tags netgo -ldflags '-H=windowsgui -extldflags "-static" $(VERSION_OPTS)'
+LINUX_OPTS := -tags netgo -ldflags '-extldflags "-static" $(VERSION_OPTS)'
+DARWIN_OPTS := -ldflags '-s -extldflags "-sectcreate __TEXT __info_plist Info.plist" $(VERSION_OPTS)'
+
+GOIMPORTS ?= goimports
+GOCILINT ?= golangci-lint
 
 DIST_DIRS := find * -type d -exec
 
-.DEFAULT_GOAL := bin/$(NAME)
+.DEFAULT_GOAL := build 
 
-bin/$(NAME): $(SRCS)
-	go build $(LDFLAGS) -o bin/$(NAME) cmd/nproxy/main.go
+build: $(SRCS)
+	@mkdir -p bin
+	@echo "Building $(GOOS)-$(GOARCH)"
+	CGO_ENABLED=0
+ifeq ($(GOOS),darwin)
+	go build -o bin/nproxy $(DARWIN_OPTS) cmd/$(NAME)/main.go
+endif
+ifeq ($(GOOS),linux)
+	go build -o bin/nproxy $(LINUX_OPTS) cmd/$(NAME)/main.go
+endif
+ifeq ($(GOOS),windows)
+	go build -o bin/nproxy.exe $(WINDOWS_OPTS) cmd/$(NAME)/main.go
+endif
 
 .PHONY: clean
 clean:
 	rm -rf bin/*
 	rm -rf dist/*
-	rm -rf vendor/*
 
-.PHONY: cross-build
-cross-build:
-	for os in linux darwin windows; do \
-	    [ $$os = "windows" ] && EXT=".exe"; \
-		for arch in amd64; do \
-			GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 go build -a -tags netgo -installsuffix netgo $(LDFLAGS) -o dist/$$os-$$arch/$(NAME)$$EXT cmd/nproxy/main.go; \
-		done; \
-	done
-
-.PHONY: deps
-deps:
-	GO111MODULE=on
+.PHONY: lint
+lint: ## Run golint and go vet.
+	@$(GOCILINT) run --no-config --disable-all --enable=goimports --enable=misspell ./...
 
 .PHONY: dist
 dist:
-	cd dist && \
-	$(DIST_DIRS) cp ../LICENSE {} \; && \
-	$(DIST_DIRS) cp ../README.md {} \; && \
-	$(DIST_DIRS) tar -zcf $(NAME)-$(VERSION)-{}.tar.gz {} \; && \
-	$(DIST_DIRS) zip -r $(NAME)-$(VERSION)-{}.zip {} \; && \
-	cd ..
-
-.PHONY: fast
-fast:
-	go build $(LDFLAGS) -o bin/$(NAME)
-
-.PHONY: install
-install:
-	go install $(LDFLAGS)
-
-.PHONY: release
-release:
-	git tag $(VERSION)
-	git push origin $(VERSION)
+	mkdir -p dist
+	@# darwin
+	@for arch in "amd64" "386"; do \
+		GOOS=darwin GOARCH=$${arch} make build; \
+		cd bin; \
+		zip ../dist/$(NAME)-$(VERSION)-darwin-$${arch}.zip $(NAME); \
+		cd ..; \
+	done;
+	@# linux
+	@for arch in "amd64" "386"; do \
+		GOOS=linux GOARCH=$${arch} make build; \
+		cd bin; \
+		tar zcvf ../dist/$(NAME)-$(VERSION)-linux-$${arch}.tar.gz $(NAME); \
+		cd ..; \
+	done;
+	@# windows
+	@for arch in "amd64" "386"; do \
+		GOOS=windows GOARCH=$${arch} make build; \
+		cd bin; \
+		zip ../dist/$(NAME)-$(VERSION)-windows-$${arch}.zip $(NAME).exe; \
+		cd ..; \
+	done;
 
 .PHONY: test
 test:

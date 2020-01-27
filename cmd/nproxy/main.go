@@ -21,6 +21,9 @@ import (
 )
 
 var (
+	version  string
+	revision string
+
 	fs = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	bindAddr = fs.String("b", ":3128", "Bind address and port")
@@ -48,7 +51,7 @@ var (
 func main() {
 	fs.Usage = func() {
 		_, exe := filepath.Split(os.Args[0])
-		fmt.Fprint(os.Stderr, "nproxy.\n\n")
+		fmt.Fprintf(os.Stderr, "nproxy %s (rev: %s)\n", version, revision)
 		fmt.Fprintf(os.Stderr, "Usage:\n\n  %s [options]\n\nOptions:\n\n", exe)
 		fs.PrintDefaults()
 	}
