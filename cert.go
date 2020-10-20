@@ -121,8 +121,6 @@ func (c *CA) signByCA(hosts []string) (*tls.Certificate, error) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 		IsCA:                  false,
-		MaxPathLen:            0,
-		MaxPathLenZero:        true,
 		DNSNames:              hosts,
 	}
 
