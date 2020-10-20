@@ -7,12 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"encoding/binary"
-
+	"crypto/rand"
 	crand "crypto/rand"
 
 	"crypto"
-	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -96,21 +94,18 @@ func (c *CA) signByCA(hosts []string) (*tls.Certificate, error) {
 	start := now.Add(-time.Minute)
 	end := now.Add(365 * 24 * time.Hour) // 1 year TODO: need configurable?
 
-	h := sha1.New()
-	for _, host := range sortedHosts {
-		h.Write([]byte(host))
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		log.Printf("error: Failed to generate serial number: %v", err)
+		return nil, err
 	}
-	binary.Write(h, binary.BigEndian, start)
-	binary.Write(h, binary.BigEndian, end)
-	hash := h.Sum(nil)
-	serial := big.Int{}
-	serial.SetBytes(hash)
 
 	x509ca := c.Certificate
 
 	template := x509.Certificate{
 		SignatureAlgorithm: x509.SHA256WithRSA,
-		SerialNumber:       &serial,
+		SerialNumber:       serialNumber,
 		Issuer:             x509ca.Subject,
 		Subject: pkix.Name{
 			CommonName: hosts[0],
