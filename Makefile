@@ -5,7 +5,7 @@ REVISION := $(shell git rev-parse --short HEAD)
 SRCS    := $(shell find . -type f -name '*.go')
 
 VERSION_OPTS := -X 'main.version=$(VERSION)' -X 'main.revision=$(REVISION)'
-WINDOWS_OPTS := -tags netgo -ldflags '-H=windowsgui -extldflags "-static" $(VERSION_OPTS)'
+WINDOWS_OPTS := -tags netgo -ldflags '-extldflags "-static" $(VERSION_OPTS)'
 LINUX_OPTS := -tags netgo -ldflags '-extldflags "-static" $(VERSION_OPTS)'
 DARWIN_OPTS := -ldflags '-s -extldflags "-sectcreate __TEXT __info_plist Info.plist" $(VERSION_OPTS)'
 
