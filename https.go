@@ -217,37 +217,44 @@ func (s *Server) mitmProxyTransfer(w http.ResponseWriter, r *http.Request, conn 
 			log.Printf("error: Cannot write TLS response HTTP status from mitm'd client: %v", err)
 			return
 		}
-		// Since we don't know the length of resp, return chunked encoded response
-		// TODO: use a more reasonable scheme
-		resp.Header.Del("Content-Length")
-		resp.Header.Set("Transfer-Encoding", "chunked")
+
+		if resp.Request.Method == "HEAD" {
+			// don't change Content-Length for HEAD request
+		} else {
+			// Since we don't know the length of resp, return chunked encoded response
+			// TODO: use a more reasonable scheme
+			resp.Header.Del("Content-Length")
+			resp.Header.Set("Transfer-Encoding", "chunked")
+		}
 		// Force connection close otherwise chrome will keep CONNECT tunnel open forever
 		resp.Header.Set("Connection", "close")
 
 		if err := resp.Header.Write(tlsConn); err != nil {
-			log.Printf("error: Cannot write TLS response header from mitm'd client: %v", err)
+			log.Printf("warn: Cannot write TLS response header from mitm'd client: %v", err)
 			return
 		}
 		if _, err = io.WriteString(tlsConn, "\r\n"); err != nil {
-			log.Printf("error: Cannot write TLS response header end from mitm'd client: %v", err)
-			return
-		}
-		chunked := NewChunkedWriter(tlsConn)
-		if _, err := io.Copy(chunked, resp.Body); err != nil {
-			log.Printf("error: Cannot write TLS response body from mitm'd client: %v", err)
-			return
-		}
-		if err := chunked.Close(); err != nil {
-			log.Printf("error: Cannot write TLS chunked EOF from mitm'd client: %v", err)
-			return
-		}
-		if _, err = io.WriteString(tlsConn, "\r\n"); err != nil {
-			log.Printf("error: Cannot write TLS response chunked trailer from mitm'd client: %v", err)
+			log.Printf("warn: Cannot write TLS response header end from mitm'd client: %v", err)
 			return
 		}
 
-		// copy response to client
-		resp.Write(tlsConn)
+		if resp.Request.Method == "HEAD" {
+			// Don't write out a response body for HEAD request
+		} else {
+			chunked := NewChunkedWriter(tlsConn)
+			if _, err := io.Copy(chunked, resp.Body); err != nil {
+				log.Printf("warn: Cannot write TLS response body from mitm'd client: %v", err)
+				return
+			}
+			if err := chunked.Close(); err != nil {
+				log.Printf("warn: Cannot write TLS chunked EOF from mitm'd client: %v", err)
+				return
+			}
+			if _, err = io.WriteString(tlsConn, "\r\n"); err != nil {
+				log.Printf("warn: Cannot write TLS response chunked trailer from mitm'd client: %v", err)
+				return
+			}
+		}
 	}
 
 	log.Printf("debug: mitmProxyTransfer : finished ")
