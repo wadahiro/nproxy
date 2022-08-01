@@ -63,7 +63,12 @@ func connect(r *http.Request, p Proxy) (*tls.Conn, error) {
 		// VerifyPeerCertificate: verify,
 	}
 
-	u, _ := p.Find(r)
+	u, err := p.Find(r)
+	if err != nil {
+		log.Printf("error: Find upstream proxy error: %s, %v", target.Host, err)
+		return nil, err
+	}
+
 	if u == nil {
 		// DIRECT
 		return tls.Dial("tcp", target.Host, tlsConfig)

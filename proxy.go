@@ -76,7 +76,26 @@ type EnvProxy struct {
 
 // Find proxy URL from starndard environment variables.
 func (p *EnvProxy) Find(req *http.Request) (*url.URL, error) {
-	return http.ProxyFromEnvironment(req)
+	var schema string
+	if req.Method == http.MethodConnect {
+		schema = "https"
+	} else {
+		schema = req.URL.Scheme
+	}
+
+	u, err := url.Parse(schema + "://" + req.Host)
+	if err != nil {
+		log.Printf("error: Invalid request URL for EnvProxy. err: %v", err)
+		return nil, err
+	}
+
+	r := &http.Request{
+		URL: u,
+	}
+
+	log.Printf("debug: Find proxy from environment for: %s", r.URL.String())
+
+	return http.ProxyFromEnvironment(r)
 }
 
 // PACProxy is a Proxy implementation using pac file.
