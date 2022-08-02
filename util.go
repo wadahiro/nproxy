@@ -38,22 +38,7 @@ func getHTTPProxyEnv() string {
 }
 
 func getHTTPSProxyEnv() string {
-	p := getProxyEnv("https_proxy")
-	if p == "" {
-		// fallback
-		return getProxyEnv("http_proxy")
-	}
-	return p
-}
-
-func getNoProxyEnv() []string {
-	s := getProxyEnv("no_proxy")
-	l := strings.Split(s, ",")
-	tl := make([]string, len(l))
-	for i, v := range l {
-		tl[i] = strings.TrimSpace(v)
-	}
-	return tl
+	return getProxyEnv("https_proxy")
 }
 
 func hasProxyEnv() bool {

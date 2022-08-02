@@ -147,7 +147,7 @@ func (p *PACProxy) Find(req *http.Request) (*url.URL, error) {
 	}
 	if urls == nil {
 		// no_proxy
-		log.Printf("debug: Don't use upstream proxy because it's detected by no_proxy")
+		log.Printf("debug: Don't use upstream proxy because it's detected by no_proxy or no http_proxy/https_proxy")
 		return nil, nil
 	}
 
